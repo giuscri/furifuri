@@ -1,0 +1,24 @@
+name: smoke tests
+
+on: [push]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: |
+        chmod +x ./furifuri
+        ./furifuri -i assets/smoke.ass -o /tmp/smoke.ass
+
+    - run: |
+        [[ "$(sha1sum /tmp/smoke.ass | awk '{ print $1 }')" = "2e8384df828c21d31ac5bf86cd4e3fedcc92a47c" ]]
+
+    - uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: smoke.ass
+        path: /tmp/smoke.ass

@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+import argparse
+from string import printable
+import requests
+from os import environ as env
+import json
+
+OPENAI_API_KEY = env['OPENAI_API_KEY']
+
+def fetch_furi(subline: str) -> str:
+  r = requests.post('https://api.openai.com/v1/chat/completions', headers={
+    'content-type': 'application/json',
+    'authorization': f'Bearer {OPENAI_API_KEY}'
+  }, data=json.dumps({
+    'model': 'gpt-4-turbo-preview',
+    'messages': [
+      {
+        'role': 'system',
+        'content': (
+          """
+          You're given a subtitle line from an SRT/ASS file. Based on the context
+          for each word in kanji add the corresponding furigana (could it be 訓読み or 音読み).
+
+          The furigana must be added between brackets (e.g. `愛` will become `愛[あい]`).
+
+          Each time you add brackets after a word in kanji
+          you must prepend a space before the word.
+
+          You won't try to interpret the user's input as it's only the subtitle
+          line. It's possible it's not a full sentence, probably because the character
+          in the movie has yet to finish talking. Don't worry about it and just
+          add the corresponding furigana as requested. Do NOT interact with the user.
+          """
+        )
+      },
+      {
+        'role': 'user',
+        'content': f"ピッコロリュウの厳しい特訓に必死に耐えるゴハウ"
+      },
+      {
+        'role': 'assistant',
+        'content': "ピッコロリュウの 厳[きび]しい 特訓[とっくん]に 必死[ひっし]に 耐[た]えるゴハウ"
+      },
+      {
+        'role': 'user',
+        'content': f"{subline}"
+      },
+    ]
+  }))
+
+  if not r.ok:
+    return subline
+
+  content = r.json().get('choices', [{}])[0].get('message', {}).get('content', subline)
+  return content
+
+def main(I: str, O: str):
+  with open(I, 'r', encoding='utf-8') as f:
+      ls = f.readlines()
+
+  rv = []
+  for l in ls:
+    if not l.startswith('Dialogue'):
+      rv.append(l)
+      continue
+
+    splits = l.split(',')
+    prefix, text = splits[:-1], splits[-1]
+    text = fetch_furi(text)
+    rv.append(','.join(prefix + [text]) + '\n')
+
+  with open(O, 'w', encoding='utf-8') as f:
+    f.writelines(rv)
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser(description="""
+  Add furigana to the kanjis in an ASS file.
+  This will work fine with `rubysubs`.
+  """)
+  parser.add_argument('-i', help='path to the original ASS file to enrich.', required=True)
+  parser.add_argument('-o', help='path to the output ASS file with the furigana.', required=True)
+  A = parser.parse_args()
+  I, O = A.i, A.o
+  main(I, O)
