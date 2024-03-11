@@ -60,7 +60,7 @@ def main(I: str, O: str):
       ls = f.readlines()
 
   rv = []
-  for l in ls:
+  for i, l in enumerate(ls):
     if not l.startswith('Dialogue'):
       rv.append(l)
       continue
@@ -68,6 +68,7 @@ def main(I: str, O: str):
     splits = l.split(',')
     prefix, text = splits[:-1], splits[-1]
     text = fetch_furi(text)
+    print(f'progress: {int(i/len(ls)*100):2d}%. Last returned line: {text}')
     rv.append(','.join(prefix + [text]) + '\n')
 
   with open(O, 'w', encoding='utf-8') as f:
